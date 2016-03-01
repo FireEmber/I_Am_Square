@@ -1,4 +1,7 @@
 <?php
+	$file = "players.tptk";
+	$temp = "players.tmp";
+	
 	$reading = @fopen($file, "r");
 	$writing = @fopen($temp, "w");
 	
