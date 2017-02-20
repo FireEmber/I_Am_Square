@@ -1,31 +1,13 @@
 <?php
-	$file = "players.tptk";
-	$temp = "players.tmp";
-	$echoText = "Player with id: " . $_POST["id"] . " deleted.";
 	
-	$reading = @fopen($file, "r");
-	$writing = @fopen($temp, "w");
-	if($reading && $writing){
-		$replaced = false;
-		
-		while (!feof($reading)) {
-			$line = fgets($reading);
-			if (stristr($line,"id:" . $_POST["id"])) {
-				$line = "";
-				$replaced = true;
-			}
-			fputs($writing, $line);
-		}
-	}
+	$httpClientIP = (!empty($_SERVER['HTTP_CLIENT_IP'])) ? $_SERVER['HTTP_CLIENT_IP'] : "NR";
+	$httpXForwardedFor = (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) ? $_SERVER['HTTP_X_FORWARDED_FOR'] : "NR";
+	$remoteAddress = (!empty($_SERVER['REMOTE_ADDR'])) ? $_SERVER['REMOTE_ADDR'] : "NR";
 	
-	fclose($reading); fclose($writing);
-	// might as well not overwrite the file if we didn"t replace anything
-	if ($replaced) 
-	{
-		rename($temp, $file);
-		} else {
-		unlink($temp);
-	}
-	echo $echoText;
+	$base = str_replace(":","-","players/player-" . $_POST["clientHash"] . "-" . $httpClientIP . $httpXForwardedFor . $remoteAddress);
+	
+	$file = $base . ".tptk";
+	
+	unlink($file);
 	exit();
 ?>

@@ -1,51 +1,54 @@
 <?php
-	$file = "players.tptk";
-	$temp = "players.tmp";
-	$echoText = "Player with id: " . $_POST["id"] . " saved.";
+	$httpClientIP = (!empty($_SERVER['HTTP_CLIENT_IP'])) ? $_SERVER['HTTP_CLIENT_IP'] : "NR";
+	$httpXForwardedFor = (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) ? $_SERVER['HTTP_X_FORWARDED_FOR'] : "NR";
+	$remoteAddress = (!empty($_SERVER['REMOTE_ADDR'])) ? $_SERVER['REMOTE_ADDR'] : "NR";
 	
-	$reading = @fopen($file, "r");
+	$base = str_replace(":","-","players/player-" . $_POST["clientHash"] . "-" . $httpClientIP . $httpXForwardedFor . $remoteAddress);
+	
+	$file = $base . ".tptk";
+	$temp = $base . ".tmp";
+	
+	$content = file_get_contents($file);
+	$content = str_replace("\n", "", $content);
+	$contentArray = explode(";", $content);
+	$contentPlayerHashIDRow = explode(": ", $contentArray[0]);
+	$contentColorRow = explode(": ", $contentArray[1]);
+	$contentXRow = explode(": ", $contentArray[2]);
+	$contentXRow[1] = str_replace('"', "", $contentXRow[1]);
+	$contentYRow = explode(": ", $contentArray[3]);
+	$contentYRow[1] = str_replace('"', "", $contentYRow[1]);
+	
+	if($_POST["rightArrow"]){
+		$contentXRow[1] = intval($contentXRow[1]) + 5;
+	}
+	if($_POST["leftArrow"]){
+		$contentXRow[1] = intval($contentXRow[1]) - 5;
+	}
+	echo($contentXRow[1] . '|' . $_POST["rightArrow"] . '|' . $_POST["leftArrow"]);
+	if($contentXRow[1] < 0){
+		$contentXRow[1] = 0;
+	}
+	
+	if($_POST["upArrow"]){
+		$contentYRow[1] = intval($contentYRow[1]) - 5;
+	}
+	if($_POST["downArrow"]){
+		$contentYRow[1] = intval($contentYRow[1]) + 5;
+	}
+	if($contentYRow[1] < 0){
+		$contentYRow[1] = 0;
+	}
+	
+	$contentXRow[1] = '"' . $contentXRow[1] . '"';
+	$contentYRow[1] = '"' . $contentYRow[1] . '"';
+	
 	$writing = @fopen($temp, "w");
-	if($reading && $writing){
-		$replaced = false;
-		
-		while (!feof($reading)) {
-			$line = fgets($reading);
-			if (stristr($line,"id:" . $_POST["id"])) {
-				$arrParts = explode(";", $line);
-				$arrVars;
-				for($pos = 0; $pos < count($arrParts);$pos++){
-					$arrVars[$pos] = explode(":",$arrParts[$pos]);
-				}
-				$x;$y;
-				for($pos = 0; $pos<count($arrVars);$pos++){
-					if(stristr($arrVars[$pos][0], "x")){$x = (int) $arrVars[$pos][1];}
-					if(stristr($arrVars[$pos][0], "y")){$y = (int) $arrVars[$pos][1];}
-				}
-				if($_POST["leftArrow"]==1){$x-=5;}
-				if($_POST["rightArrow"]==1){$x+=5;}
-				if($_POST["upArrow"]==1){$y-=5;}
-				if($_POST["downArrow"]==1){$y+=5;}
-				if($x<0){$x=0;}
-				if($y<0){$y=0;}
-				$line =
-				"id:" . $_POST["id"] . ";" . 
-				"color:" . $arrVars[1][1] . ";" . 
-				"x:" . $x . ";" . 
-				"y:" . $y;
-				$line .= "\n";
-				$replaced = true;
-			}
-			fputs($writing, $line);
-		}
-	}
-	fclose($reading); fclose($writing);
-	// might as well not overwrite the file if we didn"t replace anything
-	if ($replaced) 
-	{
-		rename($temp, $file);
-		} else {
-		unlink($temp);
-	}
-	echo $echoText;
+	fwrite($writing,
+			implode(": ", $contentPlayerHashIDRow) . ";\n" . 
+			implode(": ", $contentColorRow) . ";\n" . 
+			implode(": ", $contentXRow) . ";\n" . 
+			implode(": ", $contentYRow) . ";\n");
+	fclose($writing);
+	rename($temp, $file);
 	exit();
 ?>

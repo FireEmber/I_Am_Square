@@ -1,32 +1,42 @@
 $(document).ready(function(){
 	
+	var possibleChars = ["0","1","2","3","4","5","6","7","8","9","A","B","C","D","E","F","G","H","I","J","K","K","L","M","O","P","Q","R","S","T","U","V","W","X","Y","Z"];
+	
 	//Website Updates Per Second. Usually 60;
 	var websiteUPS=60;
 	var firstUpdate=false;
-	
-	var averageResponseRate1=0;
-	var averageResponseRateTimes1=0;
-	
-	var averageResponseRate2=0;
-	var averageResponseRateTimes2=0;
 	
 	var ups=0;
 	var canSave = false;
 	var canLoad = true;
 	
+	/*
+	* This is intended to be more of a template than actually used.
+	* Helps explain what parts there are to the player and what they hold
+	*/
 	function player(id, color) {
-		this.id = id;
+		this.playerHashID = id; // The Hash always has 10 characters and is generated on the Sever
 		this.color = color;
 		this.x = 0;
 		this.y = 0;
 	}
 	
-	var players = [];
 	var clientID = -1;
+	var clientHash = generateHash(5);
+	
+	var players = [];
 	
 	var width = $("#container").width();
 	var height = $("#container").height();
 	var keys = [];
+	
+	// Init of keys
+	keys[37] = 0
+	keys[38] = 0
+	keys[39] = 0
+	keys[40] = 0
+
+	window.onbeforeunload = deletePlayer;
 	
 	//JQuery
 	$(window).keydown(function(e){
@@ -42,12 +52,19 @@ $(document).ready(function(){
 		createPlayer();
 	})/**/
 	
-	window.onbeforeunload = deletePlayer;
+	function generateHash(length) {
+		var result = "";
+		for(var i = 0; i < length; i++){
+			result += possibleChars[randInt(0,36)];
+		}
+		return result;
+	}	
 	
 	function deletePlayer(){
 		var url = "deletePlayer.php";
-		var data =
-		"id=" + clientID;
+		var data = 
+		"clientHash=" + clientHash;
+		
 		xmlRequestPOST(url, data, false, function(xhttp){console.log(xhttp.responseText);});
 		return null;
 	}
@@ -89,69 +106,56 @@ $(document).ready(function(){
 		
 		var Player = new player(id, color);
 		
-		players.push(Player);
-		
-		var playerDiv = document.createElement('div');
-		
-		playerDiv.className = "box";
-		playerDiv.id = id;
-		playerDiv.style.backgroundColor = Player.color;
-		document.getElementById("container").appendChild(playerDiv);
-		
 		var url = "createPlayer.php";
-		var data = 
-		"id=" + Player.id +
+		var data =
+		"clientHash=" + clientHash +
 		"&color=" + Player.color +
 		"&x=" + Player.x +
 		"&y=" + Player.y;
 		
+		
 		xmlRequestPOST(url, data, true, function(xhttp){
-			console.log(xhttp.responseText);
 			canSave = true;
+			console.log(xhttp.responseText);
+			loadPlayers(false);
 		});
 	}
 	
-	function addPlayer(id){
+	function addPlayer(playerHashID){
 		var player;
 		for(var i = 0; i < players.length;i++){
-			if(players[i].id == id){player = i;}
+			if(players[i].playerHashID == playerHashID){player = i;}
 		}
 		var playerDiv = document.createElement('div');
 		
 		playerDiv.className = "box";
-		playerDiv.id = id;
+		playerDiv.id = playerHashID;
 		playerDiv.style.backgroundColor = players[player].color;
 		document.getElementById("container").appendChild(playerDiv);
 	}
 	
-	function savePlayer(id){
+	function savePlayer(){
 		canSave = false;
 		var url = "savePlayer.php";
 		var data = 
-		"id=" + id
+		"clientHash=" + clientHash
 		+ "&leftArrow=" + keys[37] 
 		+ "&upArrow=" + keys[38]
 		+ "&rightArrow=" + keys[39] 
 		+ "&downArrow=" + keys[40];
-		averageResponseRateTimes1++;
-		var time= new Date().getTime();
-		xmlRequestPOST(url, data, true, function(xhttp){
-			averageResponseRate1+=new Date().getTime() - time;
-			console.log();
+		xmlRequestPOST(url, data, false, function(xhttp){
 			canSave = true;
+			console.log(xhttp.responseText);
 		});
 	}
 	
 	function loadPlayers(firstUp){
 		canLoad = false;
 		var url = "loadPlayers.php";
-		averageResponseRateTimes2++;
 		var time= new Date().getTime();
 		xmlRequestPOST(url, null, firstUp, function(xhttp){
-			averageResponseRate2+=new Date().getTime() - time;
 			try{
 				players = JSON.parse(xhttp.responseText);
-				console.log();
 			}
 			catch(err){
 				console.error("Could Not Parse Players Array: " + xhttp.responseText)
@@ -162,8 +166,8 @@ $(document).ready(function(){
 					document.getElementById("container").childNodes[i].remove();
 					continue;
 				}
-				for(var j=0;j<(players.length);j++){
-					if(document.getElementById("container").childNodes[i].id == players[j].id){
+				for(var j = 0; j < players.length; j++){
+					if(document.getElementById("container").childNodes[i].id == players[j].playerHashID){
 						break;
 					}
 					if(j == players.length-1){
@@ -177,10 +181,10 @@ $(document).ready(function(){
 	function movePlayers(){
 		for(i in players){
 			try{
-				document.getElementById(players[i].id).style.left = players[i].x;
-				document.getElementById(players[i].id).style.top = players[i].y;
-				}catch(err){
-				addPlayer(players[i].id);
+				document.getElementById(players[i].playerHashID).style.left = players[i].x;
+				document.getElementById(players[i].playerHashID).style.top = players[i].y;
+			}catch(err){
+				addPlayer(players[i].playerHashID);
 				movePlayers();
 			}
 			
@@ -210,16 +214,12 @@ $(document).ready(function(){
 	function update(){
 		ups++;
 		updateVars();
-		if((keys[37] || keys[38] || keys[39] || keys[40]) && canSave){savePlayer(clientID)};
-		if(canLoad){loadPlayers(firstUpdate);}
-		if(players != []){movePlayers();}
-		
-		if(ups%600==0) {
-			console.log((Math.floor(averageResponseRate1/averageResponseRateTimes1*1000)/1000) + " | " + (Math.floor(averageResponseRate2/averageResponseRateTimes2*1000)/1000));
-			averageResponseRate1=0;
-			averageResponseRate2=0;
-			averageResponseRateTimes1=0;
-			averageResponseRateTimes2=0;
+		if((keys[37] || keys[38] || keys[39] || keys[40]) && canSave){
+			savePlayer();
+		};
+		if(canLoad){
+			loadPlayers(firstUpdate);
+			movePlayers();
 		}
 		if(!firstUpdate){createPlayer()};
 		firstUpdate=true;
